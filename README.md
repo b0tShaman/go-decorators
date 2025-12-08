@@ -19,3 +19,12 @@ fn := api.Decorate(API,
     retry.WithRetry(3, 100*time.Millisecond),             // 4. Retry transient errors on healthy system
     timeout.WithTimeout(500*time.Millisecond),            // 5. Per-attempt timeout
 )
+
+func API(ctx context.Context, req api.Request) api.Response {
+	select {
+	case <-time.After(100 * time.Millisecond):
+		return api.Response{Error: nil}
+	case <-ctx.Done():
+		return api.Response{Error: ctx.Err()}
+	}
+}
