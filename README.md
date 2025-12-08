@@ -20,11 +20,14 @@ fn := api.Decorate(API,
     timeout.WithTimeout(500*time.Millisecond),            // 5. Per-attempt timeout
 )
 
-func API(ctx context.Context, req api.Request) api.Response {
-	select {
-	case <-time.After(100 * time.Millisecond):
-		return api.Response{Error: nil}
-	case <-ctx.Done():
-		return api.Response{Error: ctx.Err()}
-	}
+// Core Type Definitions (in package api)
+type Request struct {
+    UniqueID string
 }
+
+type Response struct {
+    Error error
+}
+
+type APIFunc func(context.Context, Request) Response
+type Decorator func(APIFunc) APIFunc
