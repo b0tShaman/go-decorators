@@ -12,7 +12,6 @@ import (
 var ErrorCircuitOpen = errors.New("circuit breaker is open")
 var ErrorCircuitHalfOpen = errors.New("circuit breaker is half-open")
 
-
 // Circuit Breaker decorator
 func WithCircuitBreaker(failureThreshold int, tripDuration time.Duration) Decorator {
 	const (
@@ -27,39 +26,38 @@ func WithCircuitBreaker(failureThreshold int, tripDuration time.Duration) Decora
 
 	mu := sync.Mutex{}
 	return func(fn APIFunc) APIFunc {
-		return func(ctx context.Context, req Request) Response {
-			var resp Response
+		return func(ctx context.Context) error {
 			mu.Lock()
 			if state == StateOpen {
 				if time.Since(lastTripped) <= tripDuration {
 					mu.Unlock()
-					return Response{Error: ErrorCircuitOpen}
+					return ErrorCircuitOpen
 				}
 				state = StateHalfOpen
-				failureCount = failureThreshold - 1
+				failureCount = failureThreshold - 1 // Allow one attempt
 			} else if state == StateHalfOpen {
 				mu.Unlock()
-				return Response{Error: ErrorCircuitHalfOpen}
+				return ErrorCircuitHalfOpen
 			}
 
 			mu.Unlock()
 
-			resp = fn(ctx, req)
+			err := fn(ctx)
 			mu.Lock()
 			defer mu.Unlock()
 
-			if resp.Error != nil {
+			if err != nil {
 				failureCount++
 				if failureCount >= failureThreshold {
 					state = StateOpen
 					lastTripped = time.Now()
 				}
-				return resp
+				return err
 			}
 			// Success
 			failureCount = 0
 			state = StateClosed
-			return resp
+			return nil
 		}
 	}
 }

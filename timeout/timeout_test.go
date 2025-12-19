@@ -9,12 +9,12 @@ import (
 )
 
 func MockSlowAPI(delay time.Duration) api.APIFunc {
-	return func(ctx context.Context, req api.Request) api.Response {
+	return func(ctx context.Context) error {
 		select {
 		case <-time.After(delay):
-			return api.Response{Error: nil}
+			return nil
 		case <-ctx.Done():
-			return api.Response{Error: ctx.Err()}
+			return ctx.Err()
 		}
 	}
 }
@@ -27,9 +27,9 @@ func TestTimeout_FailsSlowRequest(t *testing.T) {
 	slowAPI := MockSlowAPI(100 * time.Millisecond)
 	decorated := mw(slowAPI)
 
-	resp := decorated(context.Background(), api.Request{})
+	err := decorated(context.Background())
 
-	if resp.Error == nil {
+	if err == nil {
 		t.Error("Expected timeout error, got success")
 	}
 }

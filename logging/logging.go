@@ -10,12 +10,12 @@ import (
 
 func WithLogging() Decorator {
 	return func(fn APIFunc) APIFunc {
-		return func(ctx context.Context, req Request) Response {
-			log.Printf("Invoking API with UniqueID: %s", req.UniqueID)
+		return func(ctx context.Context) error {
+			log.Printf("Invoking API")
 			t := time.Now()
-			funcResp := fn(ctx, req)
-			log.Printf("API with UniqueID: %s completed in %v", req.UniqueID, time.Since(t))
-			return funcResp
+			err := fn(ctx)
+			log.Printf("API completed in %v", time.Since(t))
+			return err
 		}
 	}
 }

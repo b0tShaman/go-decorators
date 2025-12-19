@@ -2,6 +2,7 @@ package retry
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/b0tShaman/go-decorators/api"
@@ -9,16 +10,16 @@ import (
 
 func WithRetry(times int, delay time.Duration) Decorator {
 	return func(fn APIFunc) APIFunc {
-		return func(ctx context.Context, req Request) Response {
-			var resp Response
+		return func(ctx context.Context) error {
+			var err error
 			for i := 0; i < times; i++ {
-				resp = fn(ctx, req)
-				if resp.Error == nil {
-					return resp
+				err = fn(ctx)
+				if err == nil {
+					return err
 				}
 				time.Sleep(delay)
 			}
-			return resp
+			return fmt.Errorf("failed after %d attempts: %w", times, err)
 		}
 	}
 }

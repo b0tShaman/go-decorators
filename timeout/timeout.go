@@ -13,10 +13,10 @@ var ErrorTimeout = errors.New("function execution timed out")
 // Timeout decorator
 func WithTimeout(duration time.Duration) Decorator {
 	return func(fn APIFunc) APIFunc {
-		return func(ctx context.Context, req Request) Response {
+		return func(ctx context.Context) error {
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, duration)
 			defer cancel()
-			return fn(ctxWithTimeout, req)
+			return fn(ctxWithTimeout)
 		}
 	}
 }

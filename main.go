@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -26,15 +25,9 @@ func main() {
 	)
 
 	mux.HandleFunc("POST /api", func(w http.ResponseWriter, r *http.Request) {
-		var req api.Request
-		err := json.NewDecoder(r.Body).Decode(&req)
+		err := fn(r.Context())
 		if err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
-			return
-		}
-		resp := fn(r.Context(), req)
-		if resp.Error != nil {
-			http.Error(w, resp.Error.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	})
@@ -42,11 +35,11 @@ func main() {
 	http.ListenAndServe(":8080", mux)
 }
 
-func API(ctx context.Context, req api.Request) api.Response {
+func API(ctx context.Context) error {
 	select {
 	case <-time.After(100 * time.Millisecond):
-		return api.Response{Error: nil}
+		return nil
 	case <-ctx.Done():
-		return api.Response{Error: ctx.Err()}
+		return ctx.Err()
 	}
 }

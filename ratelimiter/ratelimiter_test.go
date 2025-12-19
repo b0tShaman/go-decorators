@@ -5,16 +5,14 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/b0tShaman/go-decorators/api"
 )
 
-func MockSuccessAPI(ctx context.Context, req api.Request) api.Response {
-	return api.Response{Error: nil}
+func MockSuccessAPI(ctx context.Context) error {
+	return nil
 }
 
-func MockFailAPI(ctx context.Context, req api.Request) api.Response {
-	return api.Response{Error: errors.New("simulated failure")}
+func MockFailAPI(ctx context.Context) error {
+	return errors.New("simulated failure")
 }
 
 func TestRateLimiter_Blocking(t *testing.T) {
@@ -22,21 +20,19 @@ func TestRateLimiter_Blocking(t *testing.T) {
 	limiter := WithRateLimiting(2, 0.0001)
 	decorated := limiter(MockSuccessAPI)
 
-	req := api.Request{UniqueID: "user1"}
-
 	// 1. First request (Should Pass)
-	if resp := decorated(context.Background(), req); resp.Error != nil {
-		t.Errorf("Expected success, got %v", resp.Error)
+	if err := decorated(context.Background()); err != nil {
+		t.Errorf("Expected success, got %v", err)
 	}
 
 	// 2. Second request (Should Pass - bucket had 2)
-	if resp := decorated(context.Background(), req); resp.Error != nil {
-		t.Errorf("Expected success, got %v", resp.Error)
+	if err := decorated(context.Background()); err != nil {
+		t.Errorf("Expected success, got %v", err)
 	}
 
 	// 3. Third request (Should Fail)
-	if resp := decorated(context.Background(), req); resp.Error != ErrorRateLimitExceeded {
-		t.Errorf("Expected RateLimit error, got %v", resp.Error)
+	if err := decorated(context.Background()); err != ErrorRateLimitExceeded {
+		t.Errorf("Expected RateLimit error, got %v", err)
 	}
 }
 
@@ -44,13 +40,12 @@ func TestRateLimiter_Refill(t *testing.T) {
 	// Limit: 1, Refill: 10 per second (0.1s to refill)
 	limiter := WithRateLimiting(1, 10.0)
 	decorated := limiter(MockSuccessAPI)
-	req := api.Request{UniqueID: "userRefill"}
 
 	// Consume token
-	decorated(context.Background(), req)
+	decorated(context.Background())
 
 	// Verify blocked
-	if resp := decorated(context.Background(), req); resp.Error == nil {
+	if err := decorated(context.Background()); err == nil {
 		t.Error("Should have been blocked")
 	}
 
@@ -58,7 +53,7 @@ func TestRateLimiter_Refill(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	// Should pass now
-	if resp := decorated(context.Background(), req); resp.Error != nil {
-		t.Errorf("Refill failed: %v", resp.Error)
+	if err := decorated(context.Background()); err != nil {
+		t.Errorf("Refill failed: %v", err)
 	}
 }

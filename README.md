@@ -21,15 +21,7 @@ fn := api.Decorate(API,
 )
 
 // Core Type Definitions (in package api)
-type Request struct {
-    UniqueID string
-}
-
-type Response struct {
-    Error error
-}
-
-type APIFunc func(context.Context, Request) Response
+type APIFunc func(context.Context) error
 type Decorator func(APIFunc) APIFunc
 ```
 
@@ -49,7 +41,6 @@ func Ping(url string) (int, error) {
 
 // Wrapped Ping function which uses library decorators
 func PingWrap(url string) (int, error) {
-	r := api.Request{UniqueID: url}
 	ctx := context.Background()
 
 	type result struct {
@@ -59,7 +50,7 @@ func PingWrap(url string) (int, error) {
 
 	var finalResult result
 
-	PingForDec := func(ctx context.Context, r api.Request) api.Response {
+	PingForDec := func(ctx context.Context) error {
 		done := make(chan result, 1)
 		go func() {
 			val, err := Ping(url)
@@ -69,9 +60,9 @@ func PingWrap(url string) (int, error) {
 		select {
 		case res := <-done:
 			finalResult = res
-			return api.Response{Error: res.err}
+			return res.err
 		case <-ctx.Done():
-			return api.Response{Error: ctx.Err()}
+			return ctx.Err()
 		}
 	}
 
@@ -81,9 +72,9 @@ func PingWrap(url string) (int, error) {
 		logging.WithLogging(),
 	)
 
-	res := pingDecorator(ctx, r)
-	if res.Error != nil {
-		return 0, res.Error
+	err := pingDecorator(ctx)
+	if err != nil {
+		return 0, err
 	}
 	return finalResult.val, finalResult.err
 }

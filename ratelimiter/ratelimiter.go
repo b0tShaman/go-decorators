@@ -12,7 +12,7 @@ import (
 var ErrorRateLimitExceeded = errors.New("rate limit exceeded")
 
 // Token Bucket rate limiting decorator
-func WithRateLimiting(limit int, refillRatePerSec float64) Decorator {
+func WithRateLimiting(limit float64, refillRatePerSec float64) Decorator {
 	type Bucket struct {
 		tokens         float64
 		lastRefillTime time.Time
@@ -25,36 +25,29 @@ func WithRateLimiting(limit int, refillRatePerSec float64) Decorator {
 		return b
 	}
 
-	uniqueBuckets := make(map[string]*Bucket)
+	bucket := &Bucket{
+		tokens:         limit,
+		lastRefillTime: time.Now(),
+	}
 	mu := sync.Mutex{}
 
 	return func(fn APIFunc) APIFunc {
-		return func(ctx context.Context, req Request) Response {
+		return func(ctx context.Context) error {
 			mu.Lock()
-			bucket, exists := uniqueBuckets[req.UniqueID]
-			if !exists {
-				bucket = &Bucket{
-					tokens:         float64(limit) - 1,
-					lastRefillTime: time.Now(),
-				}
-				uniqueBuckets[req.UniqueID] = bucket
-				mu.Unlock()
-				return fn(ctx, req)
-			}
 
 			now := time.Now()
 			elapsed := now.Sub(bucket.lastRefillTime).Seconds()
-			refilledTokens := elapsed * refillRatePerSec
-			bucket.tokens = min(float64(limit), bucket.tokens+refilledTokens)
+
+			bucket.tokens = min(limit, bucket.tokens+elapsed*refillRatePerSec)
 			bucket.lastRefillTime = now
 
 			if bucket.tokens >= 1 {
 				bucket.tokens -= 1
 				mu.Unlock()
-				return fn(ctx, req)
+				return fn(ctx)
 			}
 			mu.Unlock()
-			return Response{Error: ErrorRateLimitExceeded}
+			return ErrorRateLimitExceeded
 		}
 	}
 }
